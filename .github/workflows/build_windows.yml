@@ -56,6 +56,11 @@ jobs:
         run: |
             choco install strawberryperl
 
+      - name: Install OpenSSL
+        working-directory: ${{ github.workspace }}
+        run: |
+            choco install openssl.light
+
       - name: Download Visual C++ 2022 Redistributable
         id: download-vcredist
         uses: carlosperate/download-file-action@v2
