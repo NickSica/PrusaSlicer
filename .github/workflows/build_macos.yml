@@ -57,7 +57,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install automake git gettext libtool texinfo m4 zlib
+          brew install automake git gettext libtool texinfo m4 zlib openssl
 
       - name: Downgrade automake
         run: |
