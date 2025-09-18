@@ -8,16 +8,15 @@ Subject: [PATCH] don't build occt doc
  1 file changed, 1 insertion(+)
 
 diff --git a/deps/+OCCT/OCCT.cmake b/deps/+OCCT/OCCT.cmake
-index fa6307ee8..f4aeb4343 100644
+index 81cdf46de..4dde27cb0 100644
 --- a/deps/+OCCT/OCCT.cmake
 +++ b/deps/+OCCT/OCCT.cmake
-@@ -23,4 +23,5 @@ add_cmake_project(OCCT
-         -DBUILD_MODULE_ModelingData=OFF
-         -DBUILD_MODULE_Visualization=OFF
-         -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-+        -DBUILD_DOC_Overview=OFF
+@@ -22,4 +22,5 @@ add_cmake_project(OCCT
+ 		-DBUILD_MODULE_ModelingAlgorithms=OFF
+ 		-DBUILD_MODULE_ModelingData=OFF
+ 		-DBUILD_MODULE_Visualization=OFF
++		-DBUILD_DOC_Overview=OFF
  )
 -- 
 2.46.0
-
 
