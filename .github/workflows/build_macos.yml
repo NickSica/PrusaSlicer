@@ -170,20 +170,20 @@ jobs:
         run: |
           WORK_DIR=$(mktemp -d)
           DMG_ARM64=$(realpath $(ls ${GITHUB_WORKSPACE}/artifacts/PrusaSlicer*+MacOS-arm64*.dmg|head -n1))
-          DMG_X86_64=$(realpath $(ls ${GITHUB_WORKSPACE}/artifacts/PrusaSlicer*+MacOS-x86_64*.dmg|head -n1))
+          #DMG_X86_64=$(realpath $(ls ${GITHUB_WORKSPACE}/artifacts/PrusaSlicer*+MacOS-x86_64*.dmg|head -n1))
           DMG_UNIVERSAL=$(echo "${DMG_ARM64}" | sed -e 's/arm64/universal/')
           pushd ${WORK_DIR} &>/dev/null
           hdiutil attach -mountpoint ./arm64 ${DMG_ARM64}
-          hdiutil attach -mountpoint ./x86_64 ${DMG_X86_64}
+          #hdiutil attach -mountpoint ./x86_64 ${DMG_X86_64}
 
           rsync -aq arm64/ universal/
           lipo \
             arm64/PrusaSlicer.app/Contents/MacOS/PrusaSlicer \
-            x86_64/PrusaSlicer.app/Contents/MacOS/PrusaSlicer \
+            #x86_64/PrusaSlicer.app/Contents/MacOS/PrusaSlicer \
             -create -output universal/PrusaSlicer.app/Contents/MacOS/PrusaSlicer
 
           hdiutil detach -quiet ./arm64
-          hdiutil detach -quiet ./x86_64
+          #hdiutil detach -quiet ./x86_64
 
           hdiutil create -volname "PrusaSlicer" -srcfolder ./universal -ov -format UDZO ${DMG_UNIVERSAL}
           popd &>/dev/null
