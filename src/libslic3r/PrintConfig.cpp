@@ -192,6 +192,7 @@ static const t_config_enum_values s_keys_map_SeamPosition {
     { "random",         spRandom },
     { "nearest",        spNearest },
     { "aligned",        spAligned },
+    { "aligned_rear",   spAlignedRear },
     { "rear",           spRear }
 };
 
@@ -3412,10 +3413,11 @@ void PrintConfigDef::init_fff_params()
     def->category = L("Layers and Perimeters");
     def->tooltip = L("Position of perimeters starting points.");
     def->set_enum<SeamPosition>({
-        { "random",     L("Random") },
-        { "nearest",    L("Nearest") },
-        { "aligned",    L("Aligned") },
-        { "rear",       L("Rear") }
+        { "random",         L("Random") },
+        { "nearest",        L("Nearest") },
+        { "aligned",        L("Aligned") },
+        { "aligned_rear",   L("Aligned Rear") },
+        { "rear",           L("Rear") }
     });
     def->mode = comSimple;
     def->set_default_value(new ConfigOptionEnum<SeamPosition>(spAligned));
@@ -4738,6 +4740,8 @@ void PrintConfigDef::init_extruder_option_keys()
 
     m_extruder_retract_keys = {
         "deretract_speed",
+        // BOSS
+        "prime_length_at_start",
         "retract_before_travel",
         "retract_before_wipe",
         "retract_layer_change",
@@ -4754,8 +4758,6 @@ void PrintConfigDef::init_extruder_option_keys()
         "travel_ramping_lift",
         "travel_slope",
         "wipe",
-        // BOSS
-        "prime_length_at_start",
     };
     assert(std::is_sorted(m_extruder_retract_keys.begin(), m_extruder_retract_keys.end()));
 }
