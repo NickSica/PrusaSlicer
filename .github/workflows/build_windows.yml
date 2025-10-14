@@ -56,6 +56,7 @@ jobs:
         run: |
             choco install strawberryperl
 
+      # TODO: Figure out how to use regular OpenSSL and build with it
       - name: Install OpenSSL
         working-directory: ${{ github.workspace }}
         run: |
@@ -109,6 +110,7 @@ jobs:
           move ${{ runner.temp }}\vcredist\vcruntime140_1.dll .
           move ${{ runner.temp }}\vcredist\msvcp140.dll .
           move ${{ runner.temp }}\vcredist\msvcp140_codecvt_ids.dll .
+          move 'C:\Program Files\OpenSSL\*.dll' .
 
       - name: Create installer Win
         working-directory: ${{ github.workspace }}/build
