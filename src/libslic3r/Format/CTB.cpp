@@ -21,7 +21,7 @@
 #pragma comment(lib, "bcrypt.lib")
 #endif
 
-#ifdef __linux__|| __APPLE__
+#if defined(__linux__) || __APPLE__
 #include <openssl/sha.h>
 #include <openssl/evp.h>
 #endif
@@ -669,7 +669,7 @@ int encrypt(const std::string &input, const std::string &key, const std::string 
 }
 #endif
 
-#ifdef __linux__|| __APPLE__
+#if defined(__linux__) || defined(__APPLE__)
 int encrypt(std::string input, std::string key, std::string iv, unsigned char *encrypted_string) {
     EVP_CIPHER_CTX *ctx;
     if (!(ctx = EVP_CIPHER_CTX_new())) {
@@ -851,7 +851,7 @@ void CtbSLAArchive::export_print(
         int encrypted_len = encrypt(hash_string, key, iv, encrypted_hash);
 #endif
 
-#ifdef __linux__|| __APPLE__
+#if defined(__linux__) || defined(__APPLE__)
         unsigned char hash[SHA256_DIGEST_LENGTH];
         unsigned int hash_len;
 
@@ -908,7 +908,7 @@ void CtbSLAArchive::export_print(
         header_encrypted_len = encrypt(decrypted_header_string, key, iv, encrypted_header);
 #endif
 
-#ifdef __linux__|| __APPLE__
+#if defined(__linux__) || defined(__APPLE__)
         header_encrypted_len = encrypt(decrypted_header_string, key, iv, encrypted_header);
 #endif
 
