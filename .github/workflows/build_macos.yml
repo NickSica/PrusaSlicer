@@ -10,7 +10,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-15
+          - os: macos-15-intel
             arch: x86_64
           - os: macos-15
             arch: arm64
@@ -57,7 +57,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install automake git gettext libtool texinfo m4 zlib
+          brew install automake git gettext libtool texinfo m4 zlib openssl
 
       - name: Downgrade automake
         run: |
