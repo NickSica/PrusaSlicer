@@ -4,6 +4,8 @@
 #include <iostream>
 #include <fstream>
 #include <cstdint>
+#include <cstring>
+#include <string>
 #include <chrono>
 
 #include "libslic3r/GCode/ThumbnailData.hpp"
@@ -13,14 +15,18 @@
 #include <boost/log/trivial.hpp>
 #include <boost/pfr/core.hpp>
 
+#ifdef WIN32
+#include <Windows.h>
+#include <bcrypt.h>
+#pragma comment(lib, "bcrypt.lib")
+#endif
+
+#ifdef __linux__|| __APPLE__
 #include <openssl/sha.h>
 #include <openssl/evp.h>
-#include <boost/pfr/core.hpp>
-#include <cstring>
+#endif
 
-#include <iostream>
-#include <fstream>
-#include <string>
+#include <boost/pfr/core.hpp>
 
 // Special thanks to UVTools for the CTBv4 update and
 // Catibo for the excellent writeup(https://github.com/cbiffle/catibo/blob/master/doc/cbddlp-ctb.adoc)
@@ -551,6 +557,119 @@ std::string xor_cipher(std::string input, std::string key) {
     return output;
 }
 
+#ifdef WIN32
+int encrypt(const std::string &input, const std::string &key, const std::string &iv, unsigned char *encrypted_string)
+{
+    BCRYPT_ALG_HANDLE hAesAlg = nullptr;
+    BCRYPT_KEY_HANDLE hKey = nullptr;
+    NTSTATUS status;
+    DWORD cbKeyObject = 0, cbData = 0, cbCipherText = 0;
+    std::vector<UCHAR> keyObject;
+    std::vector<UCHAR> cipherText;
+
+    // Open AES algorithm provider
+    status = BCryptOpenAlgorithmProvider(&hAesAlg, BCRYPT_AES_ALGORITHM, nullptr, 0);
+    if (status != 0) throw std::runtime_error("BCryptOpenAlgorithmProvider failed");
+
+    // Set CBC mode
+    status = BCryptSetProperty(
+        hAesAlg,
+        BCRYPT_CHAINING_MODE,
+        (PUCHAR)BCRYPT_CHAIN_MODE_CBC,
+        sizeof(BCRYPT_CHAIN_MODE_CBC),
+        0
+    );
+    if (status != 0) {
+        BCryptCloseAlgorithmProvider(hAesAlg, 0);
+        throw std::runtime_error("BCryptSetProperty (CBC) failed");
+    }
+
+    // Determine key object size
+    status = BCryptGetProperty(
+        hAesAlg,
+        BCRYPT_OBJECT_LENGTH,
+        (PUCHAR)&cbKeyObject,
+        sizeof(DWORD),
+        &cbData,
+        0
+    );
+    if (status != 0) {
+        BCryptCloseAlgorithmProvider(hAesAlg, 0);
+        throw std::runtime_error("BCryptGetProperty (BCRYPT_OBJECT_LENGTH) failed");
+    }
+
+    keyObject.resize(cbKeyObject);
+
+    // Import AES key
+    status = BCryptGenerateSymmetricKey(
+        hAesAlg,
+        &hKey,
+        keyObject.data(),
+        cbKeyObject,
+        (PUCHAR)key.data(),
+        (ULONG)key.size(),
+        0
+    );
+    if (status != 0) {
+        BCryptCloseAlgorithmProvider(hAesAlg, 0);
+        throw std::runtime_error("BCryptGenerateSymmetricKey failed");
+    }
+
+    // Ensure input length is multiple of block size (no padding mode)
+    DWORD blockLen = 0;
+    status = BCryptGetProperty(
+        hAesAlg,
+        BCRYPT_BLOCK_LENGTH,
+        (PUCHAR)&blockLen,
+        sizeof(blockLen),
+        &cbData,
+        0
+    );
+    if (status != 0) {
+        BCryptDestroyKey(hKey);
+        BCryptCloseAlgorithmProvider(hAesAlg, 0);
+        throw std::runtime_error("BCryptGetProperty (BCRYPT_BLOCK_LENGTH) failed");
+    }
+
+    if (input.size() % blockLen != 0)
+        throw std::runtime_error("Input length must be multiple of AES block size when padding is disabled");
+
+    cipherText.resize(input.size());
+
+    // Copy IV (BCryptEncrypt modifies IV)
+    std::vector<UCHAR> ivCopy(iv.begin(), iv.end());
+
+    // Encrypt (no padding)
+    ULONG bytesDone = 0;
+    status = BCryptEncrypt(
+        hKey,
+        (PUCHAR)input.data(),
+        (ULONG)input.size(),
+        nullptr,
+        ivCopy.data(),
+        (ULONG)ivCopy.size(),
+        cipherText.data(),
+        (ULONG)cipherText.size(),
+        &bytesDone,
+        0 // no padding flag
+    );
+
+    if (status != 0) {
+        BCryptDestroyKey(hKey);
+        BCryptCloseAlgorithmProvider(hAesAlg, 0);
+        throw std::runtime_error("BCryptEncrypt failed");
+    }
+
+    memcpy(encrypted_string, cipherText.data(), bytesDone);
+
+    BCryptDestroyKey(hKey);
+    BCryptCloseAlgorithmProvider(hAesAlg, 0);
+
+    return (int)bytesDone;
+}
+#endif
+
+#ifdef __linux__|| __APPLE__
 int encrypt(std::string input, std::string key, std::string iv, unsigned char *encrypted_string) {
     EVP_CIPHER_CTX *ctx;
     if (!(ctx = EVP_CIPHER_CTX_new())) {
@@ -589,6 +708,7 @@ int encrypt(std::string input, std::string key, std::string iv, unsigned char *e
     EVP_CIPHER_CTX_free(ctx);
     return encrypted_len;
 }
+#endif
 
 void CtbSLAArchive::export_print(
     const std::string fname,
@@ -650,22 +770,91 @@ void CtbSLAArchive::export_print(
 
     if (is_encrypted) {
         // Encryption has to happen earlier due to offset calculations
-        std::string key = xor_cipher(
+        const std::string key = xor_cipher(
             "\x80\x29\xFB\x40\x10\x8D\x51\x73\x86\x2A\x50\x8D\xAD\x2E\x8E\xF5\xF8\x31\x0D\x59\xF8"
             "\x0C\xEF\xDD\x37"
             "\x70\x92\x43\xB4\x3B\x49\x8F",
             "PrusaSlicer"
         );
-        std::string iv = xor_cipher(
+        const std::string iv = xor_cipher(
             "\x5F\x73\x7F\x76\x64\x58\x6A\x6E\x6B\x63\x78\x5C\x7E\x78\x7A\x6E", "PrusaSlicer"
         );
-        unsigned char hash[SHA256_DIGEST_LENGTH];
+
+        unsigned char checksum[8] = {0xBE, 0xBA, 0xFE, 0xCA, 0x00, 0x00, 0x00, 0x00};
+
         unsigned char encrypted_hash[512];
         unsigned char encrypted_header[512];
         // std::string   checksum = "\xCA\xFE\xBA\xBE";
-        unsigned char checksum[8] = {0xBE, 0xBA, 0xFE, 0xCA, 0x00, 0x00, 0x00, 0x00};
 
+#ifdef WIN32
+        BCRYPT_ALG_HANDLE hAlg = nullptr;
+        BCRYPT_HASH_HANDLE hHash = nullptr;
+        NTSTATUS status;
+        DWORD cbHashObject = 0, cbData = 0, hashLen = 0;
+        std::vector<UCHAR> hashObject;
+        std::vector<UCHAR> hashBuffer;
+
+        // Open SHA256 algorithm provider
+        status = BCryptOpenAlgorithmProvider(&hAlg, BCRYPT_SHA256_ALGORITHM, nullptr, 0);
+        if (status != 0) throw std::runtime_error("BCryptOpenAlgorithmProvider (SHA256) failed");
+
+        // Get hash object size
+        status = BCryptGetProperty(hAlg, BCRYPT_OBJECT_LENGTH,
+                                   (PUCHAR)&cbHashObject, sizeof(DWORD), &cbData, 0);
+        if (status != 0) {
+            BCryptCloseAlgorithmProvider(hAlg, 0);
+            throw std::runtime_error("BCryptGetProperty (BCRYPT_OBJECT_LENGTH) failed");
+        }
+
+        hashObject.resize(cbHashObject);
+
+        // Get hash length
+        status = BCryptGetProperty(hAlg, BCRYPT_HASH_LENGTH,
+                                   (PUCHAR)&hashLen, sizeof(DWORD), &cbData, 0);
+        if (status != 0) {
+            BCryptCloseAlgorithmProvider(hAlg, 0);
+            throw std::runtime_error("BCryptGetProperty (BCRYPT_HASH_LENGTH) failed");
+        }
+
+        hashBuffer.resize(hashLen);
+
+        // Create hash handle
+        status = BCryptCreateHash(hAlg, &hHash,
+                                  hashObject.data(), cbHashObject,
+                                  nullptr, 0, 0);
+        if (status != 0) {
+            BCryptCloseAlgorithmProvider(hAlg, 0);
+            throw std::runtime_error("BCryptCreateHash failed");
+        }
+
+        // Hash the input data (your "checksum")
+        status = BCryptHashData(hHash, checksum, 8, 0);
+        if (status != 0) {
+            BCryptDestroyHash(hHash);
+            BCryptCloseAlgorithmProvider(hAlg, 0);
+            throw std::runtime_error("BCryptHashData failed");
+        }
+
+        // Finalize the hash
+        status = BCryptFinishHash(hHash, hashBuffer.data(), hashLen, 0);
+        if (status != 0) {
+            BCryptDestroyHash(hHash);
+            BCryptCloseAlgorithmProvider(hAlg, 0);
+            throw std::runtime_error("BCryptFinishHash failed");
+        }
+
+        BCryptDestroyHash(hHash);
+        BCryptCloseAlgorithmProvider(hAlg, 0);
+
+        // Convert hash bytes to string form for encryption
+        std::string hash_string(reinterpret_cast<char *>(hashBuffer.data()), hashLen);
+        int encrypted_len = encrypt(hash_string, key, iv, encrypted_hash);
+#endif
+
+#ifdef __linux__|| __APPLE__
+        unsigned char hash[SHA256_DIGEST_LENGTH];
         unsigned int hash_len;
+
         EVP_MD_CTX *ctx_sha256 = EVP_MD_CTX_create();
         EVP_DigestInit_ex(ctx_sha256, EVP_sha256(), NULL);
         EVP_DigestUpdate(ctx_sha256, checksum, 8);
@@ -675,7 +864,8 @@ void CtbSLAArchive::export_print(
         // SHA256(reinterpret_cast<const unsigned char *>(checksum.c_str()), checksum.length(), hash);
         std::string hash_string{reinterpret_cast<char *>(hash), hash_len};
 
-        int encrypted_len = encrypt(hash_string, key, iv, encrypted_hash);
+        int encrypted_len = encrypt(hash_string, &key, &iv, encrypted_hash);
+#endif
         int header_encrypted_len = get_struct_size(decrypted_header.header_struct);
 
         // Fill out all the offsets now that we have the info we need
@@ -714,7 +904,13 @@ void CtbSLAArchive::export_print(
         std::string decrypted_header_string{
             decrypted_header.buffer, get_struct_size(decrypted_header.header_struct)
         };
+#ifdef WIN32
         header_encrypted_len = encrypt(decrypted_header_string, key, iv, encrypted_header);
+#endif
+
+#ifdef __linux__|| __APPLE__
+        header_encrypted_len = encrypt(decrypted_header_string, key, iv, encrypted_header);
+#endif
 
         try {
             // open the file and write the contents
