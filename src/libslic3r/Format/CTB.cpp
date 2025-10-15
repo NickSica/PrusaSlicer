@@ -864,7 +864,7 @@ void CtbSLAArchive::export_print(
         // SHA256(reinterpret_cast<const unsigned char *>(checksum.c_str()), checksum.length(), hash);
         std::string hash_string{reinterpret_cast<char *>(hash), hash_len};
 
-        int encrypted_len = encrypt(hash_string, &key, &iv, encrypted_hash);
+        int encrypted_len = encrypt(hash_string, key, iv, encrypted_hash);
 #endif
         int header_encrypted_len = get_struct_size(decrypted_header.header_struct);
 
