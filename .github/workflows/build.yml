@@ -39,10 +39,10 @@ jobs:
     uses: ./.github/workflows/build_linux.yml
     secrets: inherit
 
-  build_macos:
-    name: Build on MacOS
-    uses: ./.github/workflows/build_macos.yml
-    secrets: inherit
+  #build_macos:
+  #  name: Build on MacOS
+  #  uses: ./.github/workflows/build_macos.yml
+  #  secrets: inherit
 
   build_windows:
     name: Build on Windows
@@ -54,10 +54,11 @@ jobs:
     uses: ./.github/workflows/release.yml
     needs:
       - build_linux
-      - build_macos
+      #- build_macos
       - build_windows
     secrets: inherit
     permissions:
       contents: write
       pages: write
       id-token: write
+
