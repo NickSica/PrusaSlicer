@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   update-version:
-    uses: mjonuschat/prusaslicer-ci/.github/workflows/unpublish.yml@main
+    uses: NickSica/prusaslicer-ci/.github/workflows/unpublish.yml@main
     secrets: inherit
     permissions:
       contents: read
