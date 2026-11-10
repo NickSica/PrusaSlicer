@@ -38,22 +38,22 @@ concurrency:
 jobs:
   build_linux:
     name: Build on Linux
-    uses: mjonuschat/prusaslicer-ci/.github/workflows/build_linux.yml@legacy
+    uses: NickSica/prusaslicer-ci/.github/workflows/build_linux.yml@legacy
     secrets: inherit
 
   build_macos:
     name: Build on MacOS
-    uses: mjonuschat/prusaslicer-ci/.github/workflows/build_macos.yml@legacy
+    uses: NickSica/prusaslicer-ci/.github/workflows/build_macos.yml@legacy
     secrets: inherit
 
   build_windows:
     name: Build on Windows
-    uses: mjonuschat/prusaslicer-ci/.github/workflows/build_windows.yml@legacy
+    uses: NickSica/prusaslicer-ci/.github/workflows/build_windows.yml@legacy
     secrets: inherit
 
   publish:
     name: Publish Release
-    uses: mjonuschat/prusaslicer-ci/.github/workflows/release.yml@legacy
+    uses: NickSica/prusaslicer-ci/.github/workflows/release.yml@legacy
     needs:
       - build_linux
       - build_macos
